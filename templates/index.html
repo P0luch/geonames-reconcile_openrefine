@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>GeoNames Reconciliation — Configuration</title>
+  <style>
+    body { font-family: sans-serif; max-width: 500px; margin: 40px auto; padding: 0 20px; }
+    h1 { font-size: 1.3em; }
+    label { display: block; margin-top: 14px; font-weight: bold; }
+    input[type="text"], input[type="number"], select {
+      width: 100%; padding: 6px 8px; margin-top: 4px; box-sizing: border-box;
+    }
+    .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+    .checkbox-row label { margin: 0; font-weight: normal; }
+    button { margin-top: 20px; padding: 8px 20px; cursor: pointer; }
+    .saved { color: green; margin-top: 10px; }
+    .service-url { margin-top: 24px; font-size: 0.9em; color: #555; }
+    .service-url a { color: #0066cc; }
+  </style>
+</head>
+<body>
+  <h1>GeoNames Reconciliation — Configuration</h1>
+
+  {% if saved %}
+  <p class="saved">Paramètres sauvegardés.</p>
+  {% endif %}
+
+  <form method="POST" action="/settings">
+
+    <label for="username">Nom d'utilisateur GeoNames</label>
+    <input type="text" id="username" name="username"
+           value="{{ settings.username }}" placeholder="demo">
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="remember" name="remember"
+             {% if settings.remember %}checked{% endif %}>
+      <label for="remember">Se souvenir du nom d'utilisateur</label>
+    </div>
+
+    <label for="lang">Langue des résultats</label>
+    <select id="lang" name="lang">
+      <option value="" {% if not settings.lang %}selected{% endif %}>— par défaut —</option>
+      <option value="fr" {% if settings.lang == 'fr' %}selected{% endif %}>Français</option>
+      <option value="en" {% if settings.lang == 'en' %}selected{% endif %}>English</option>
+      <option value="de" {% if settings.lang == 'de' %}selected{% endif %}>Deutsch</option>
+      <option value="es" {% if settings.lang == 'es' %}selected{% endif %}>Español</option>
+      <option value="it" {% if settings.lang == 'it' %}selected{% endif %}>Italiano</option>
+      <option value="pt" {% if settings.lang == 'pt' %}selected{% endif %}>Português</option>
+      <option value="nl" {% if settings.lang == 'nl' %}selected{% endif %}>Nederlands</option>
+    </select>
+
+    <label for="maxRows">Nombre de résultats maximum</label>
+    <input type="number" id="maxRows" name="maxRows"
+           value="{{ settings.maxRows }}" min="1" max="100">
+
+    <label for="fuzzy">Tolérance orthographique (fuzzy, 0–1)</label>
+    <input type="number" id="fuzzy" name="fuzzy"
+           value="{{ settings.fuzzy }}" min="0" max="1" step="0.1">
+
+    <button type="submit">Sauvegarder</button>
+  </form>
+
+  <div class="service-url">
+    URL du service pour OpenRefine :
+    <a href="http://localhost:5065/reconcile" target="_blank">
+      http://localhost:5065/reconcile
+    </a>
+  </div>
+</body>
+</html>
