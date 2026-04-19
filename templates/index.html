@@ -2,69 +2,465 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>GeoNames Reconciliation — Configuration</title>
+  <title>GeoNames × OpenRefine Reconciliation</title>
   <style>
-    body { font-family: sans-serif; max-width: 500px; margin: 40px auto; padding: 0 20px; }
-    h1 { font-size: 1.3em; }
-    label { display: block; margin-top: 14px; font-weight: bold; }
-    input[type="text"], input[type="number"], select {
-      width: 100%; padding: 6px 8px; margin-top: 4px; box-sizing: border-box;
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f8f9f6;
+      margin: 0;
+      padding: 0;
+      color: #1a1a2e;
     }
-    .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
-    .checkbox-row label { margin: 0; font-weight: normal; }
-    button { margin-top: 20px; padding: 8px 20px; cursor: pointer; }
-    .saved { color: green; margin-top: 10px; }
-    .service-url { margin-top: 24px; font-size: 0.9em; color: #555; }
-    .service-url a { color: #0066cc; }
+
+    .card {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .card-header {
+      padding: 32px 0 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-header h1 {
+      font-size: 1.3em;
+      margin: 0;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .card-header .github-link {
+      color: #6b7280;
+      line-height: 0;
+      transition: color 0.15s;
+      align-self: flex-start;
+    }
+    .card-header .github-link:hover { color: #1a1a2e; }
+
+    .card-body { padding: 20px 0px 32px; }
+
+    hr { border: none; border-top: 1px solid #e8ecf0; margin: 14px 0; }
+
+    label { display: block; margin-top: 10px; font-weight: 600; font-size: 0.88em; color: #374151; }
+
+    input[type="text"], input[type="number"], select {
+      width: 100%; padding: 6px 9px; margin-top: 3px;
+      border: 1px solid #d1d5db; border-radius: 6px;
+      font-family: inherit; font-size: 0.92em; color: #1a1a2e;
+      background: #fafafa;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      outline: none;
+    }
+    input[type="text"]:focus, input[type="number"]:focus, select:focus {
+      border-color: #2d6a4f;
+      box-shadow: 0 0 0 3px rgba(45,106,79,0.12);
+      background: #fff;
+    }
+
+    .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .checkbox-row label { margin: 0; font-weight: normal; font-size: 0.9em; color: #555; }
+    input[type="checkbox"] { accent-color: #2d6a4f; width: 15px; height: 15px; cursor: pointer; }
+
+    .account-info { margin-top: 8px; font-size: 0.82em; color: #6b7280; line-height: 1.5; }
+    .account-info a { color: #2d6a4f; text-decoration: none; }
+    .account-info a:hover { text-decoration: underline; }
+
+    .btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+    button {
+      padding: 7px 15px; cursor: pointer;
+      border: 1px solid #d1d5db; background: #f9fafb;
+      border-radius: 6px; font-family: inherit; font-size: 0.88em;
+      color: #374151; transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+    button:hover { background: #f0f4f8; border-color: #9ca3af; }
+    button:active { background: #e5e7eb; }
+
+    button.primary {
+      background: #2d6a4f; color: white; border-color: #245c43;
+      font-weight: 600;
+    }
+    button.primary:hover { background: #245c43; border-color: #1b4d38; box-shadow: 0 2px 6px rgba(45,106,79,0.25); }
+
+    button.small { padding: 4px 10px; font-size: 0.82em; }
+
+    /* URL du service */
+    .service-url-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.88em; color: #6b7280; flex-wrap: wrap;
+      background: #f0f4f8; border-radius: 6px; padding: 8px 12px;
+    }
+    .service-url-row a { color: #2d6a4f; text-decoration: none; font-weight: 500; }
+    .service-url-row a:hover { text-decoration: underline; }
+
+    /* Section titres */
+    .advanced-section h3 {
+      font-size: 0.88em; margin: 0 0 2px 0;
+      color: #64748b; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .advanced-section label { color: #475569; }
+
+    /* Paramètres avancés collapse */
+    details { margin: 0; }
+    details + * { margin-top: 0; }
+    .advanced-summary {
+      font-size: 0.88em; font-weight: 600; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px;
+      user-select: none;
+    }
+    .advanced-summary::-webkit-details-marker { display: none; }
+    .advanced-summary::before {
+      content: '›'; font-size: 1.1em; transition: transform 0.2s; display: inline-block;
+    }
+    details[open] .advanced-summary::before { transform: rotate(90deg); }
+
+    /* Preview */
+    .preview-wrapper { position: relative; margin-top: 10px; display: none; }
+    .preview-close {
+      position: absolute; top: 4px; right: 4px;
+      background: rgba(0,0,0,0.45); color: white; border: none;
+      border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 0.82em; z-index: 1;
+    }
+    #preview-frame { width: 100%; height: 420px; border: 1px solid #e2e8f0; border-radius: 6px; display: block; }
+
+    /* Disclaimer */
+    .disclaimer {
+      margin-top: 20px; padding: 10px 14px;
+      background: #fffbeb; border: 1px solid #fcd34d;
+      border-radius: 6px; font-size: 0.83em; color: #78350f; line-height: 1.6;
+    }
+    .disclaimer a { color: #92400e; }
+
+    .btn-dl {
+      display: inline-block; padding: 7px 15px;
+      border: 1px solid #d1d5db; background: #f9fafb;
+      border-radius: 6px; font-family: inherit; font-size: 0.88em;
+      color: #374151; text-decoration: none;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-dl:hover { background: #f0f4f8; border-color: #9ca3af; }
+
+    /* Quota banner */
+    #quota-notif {
+      display: none; position: sticky; top: 0; left: 0; right: 0;
+      background: #dc2626; color: white; padding: 12px 20px;
+      font-size: 0.95em; font-family: 'Segoe UI', system-ui, sans-serif;
+      z-index: 9999; cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    #quota-notif .close-hint { float: right; opacity: 0.8; font-size: 0.85em; margin-left: 16px; }
+
+    /* Toasts */
+    #toast-container {
+      position: fixed; bottom: 24px; right: 24px;
+      display: flex; flex-direction: column; gap: 8px; z-index: 9998;
+    }
+    .toast {
+      padding: 10px 16px; border-radius: 6px; font-size: 0.88em;
+      color: white; box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+      opacity: 1; transition: opacity 0.4s;
+      max-width: 320px; font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    .toast.ok  { background: #2d6a4f; }
+    .toast.err { background: #dc2626; }
+    .toast.info { background: #475569; }
   </style>
 </head>
 <body>
-  <h1>GeoNames Reconciliation — Configuration</h1>
+  <div id="quota-notif" onclick="closeQuotaNotif()" title="Cliquer pour fermer">
+    <span class="close-hint">✕ cliquer pour fermer</span>
+    <strong>Quota GeoNames dépassé</strong> — <span id="quota-msg"></span>
+  </div>
 
-  {% if saved %}
-  <p class="saved">Paramètres sauvegardés.</p>
-  {% endif %}
+  <div id="toast-container"></div>
 
-  <form method="POST" action="/settings">
-
-    <label for="username">Nom d'utilisateur GeoNames</label>
-    <input type="text" id="username" name="username"
-           value="{{ settings.username }}" placeholder="demo">
-
-    <div class="checkbox-row">
-      <input type="checkbox" id="remember" name="remember"
-             {% if settings.remember %}checked{% endif %}>
-      <label for="remember">Se souvenir du nom d'utilisateur</label>
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h1>GeoNames × OpenRefine</h1>
+        <div style="font-size:0.78em; color:#9ca3af; margin-top:2px;">v1.2</div>
+      </div>
+      <a href="https://github.com/P0luch/geonames-reconcile_openrefine" class="github-link" title="Voir le dépôt GitHub" target="_blank">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+      </a>
     </div>
 
-    <label for="lang">Langue des résultats</label>
-    <select id="lang" name="lang">
-      <option value="" {% if not settings.lang %}selected{% endif %}>— par défaut —</option>
-      <option value="fr" {% if settings.lang == 'fr' %}selected{% endif %}>Français</option>
-      <option value="en" {% if settings.lang == 'en' %}selected{% endif %}>English</option>
-      <option value="de" {% if settings.lang == 'de' %}selected{% endif %}>Deutsch</option>
-      <option value="es" {% if settings.lang == 'es' %}selected{% endif %}>Español</option>
-      <option value="it" {% if settings.lang == 'it' %}selected{% endif %}>Italiano</option>
-      <option value="pt" {% if settings.lang == 'pt' %}selected{% endif %}>Português</option>
-      <option value="nl" {% if settings.lang == 'nl' %}selected{% endif %}>Nederlands</option>
-    </select>
+    <div class="card-body">
 
-    <label for="maxRows">Nombre de résultats maximum</label>
-    <input type="number" id="maxRows" name="maxRows"
-           value="{{ settings.maxRows }}" min="1" max="100">
+      {% if error %}
+      <p style="color:#dc2626; margin-top:0">{{ error }}</p>
+      {% endif %}
 
-    <label for="fuzzy">Tolérance orthographique (fuzzy, 0–1)</label>
-    <input type="number" id="fuzzy" name="fuzzy"
-           value="{{ settings.fuzzy }}" min="0" max="1" step="0.1">
+      <!-- URL du service -->
+      <div class="service-url-row">
+        <span>URL pour OpenRefine :</span>
+        <a href="http://localhost:5065/reconcile" target="_blank">http://localhost:5065/reconcile</a>
+        <button class="small" onclick="copyServiceUrl()">Copier</button>
+      </div>
 
-    <button type="submit">Sauvegarder</button>
-  </form>
+      <hr>
 
-  <div class="service-url">
-    URL du service pour OpenRefine :
-    <a href="http://localhost:5065/reconcile" target="_blank">
-      http://localhost:5065/reconcile
-    </a>
-  </div>
+      <form id="settings-form">
+
+        <!-- Login GeoNames -->
+        <div class="advanced-section">
+          <h3>Login GeoNames</h3>
+        </div>
+        <label for="username">Nom d'utilisateur <span style="color:#dc2626">*</span></label>
+        <input type="text" id="username" name="username" required
+               value="{{ settings.username if (settings.remember or saved) else '' }}"
+               placeholder="username">
+
+        <div class="checkbox-row">
+          <input type="checkbox" id="remember" name="remember"
+                 {% if settings.remember %}checked{% endif %}>
+          <label for="remember">Se souvenir du nom d'utilisateur</label>
+        </div>
+
+        <div class="account-info">
+          Pas encore de compte ?
+          <a href="https://www.geonames.org/login" target="_blank">Créer un compte gratuit</a> <br>
+          Activer les web services dans <em>Manage Account → Free Web Services</em>.
+        </div>
+
+        <!-- Test connexion / preview -->
+        <div class="btn-row" style="margin-top:8px;">
+          <button type="button" onclick="testConnection()">Tester la connexion</button>
+          <button type="button" onclick="testPreview()">Tester la preview</button>
+        </div>
+
+        <div class="preview-wrapper" id="preview-wrapper">
+          <button class="preview-close" onclick="closePreview()">✕ fermer</button>
+          <iframe id="preview-frame" title="Preview"></iframe>
+        </div>
+
+        <hr>
+
+        <!-- Données de session -->
+        <div class="advanced-section">
+          <h3>Données de session</h3>
+        </div>
+        <p style="font-size:0.82em; color:#6b7280; margin:6px 0 10px 0;">
+          Le cache est conservé entre les sessions. Exportez-le pour le sauvegarder ou le partager, importez-le pour reprendre sans reconsommer de crédits.
+        </p>
+        <div class="btn-row">
+          <a href="/export-cache/pkl" class="btn-dl">Exporter</a>
+          <label for="import-file" style="margin-top:0; font-size:0.88em; color:#374151; font-weight:normal; cursor:pointer; display:inline-block; padding:7px 15px; border:1px solid #d1d5db; border-radius:6px; background:#f9fafb;">
+            Importer
+            <input type="file" id="import-file" accept=".zip" style="display:none" onchange="importCache(this)">
+          </label>
+        </div>
+
+        <br>
+     
+      <!-- Disclaimer -->
+        <div class="disclaimer" style="margin-top:14px;">
+          ⚠️ <strong>Si la réconciliation ne renvoie aucun candidat, tester la connexion.</strong><br>
+          <em>Plus d'infos sur l'utilisation des crédits</em> —
+          <a href="https://www.geonames.org/export/credits.html" target="_blank">geonames.org/export/credits.html</a>
+        </div>
+
+        <hr>
+        <!-- Paramètres avancés -->
+        <details>
+          <summary class="advanced-summary">Paramètres avancés <span style="font-size:0.82em;  text-transform: none; font-weight: normal; color:#6b7280;">(langues,candidats, scoring)</span></summary>
+
+          <div style="padding-top:10px;">
+            <label for="searchlang">Langue des termes à rechercher</label>
+            <select id="searchlang" name="searchlang">
+              <option value="" {% if not settings.searchlang %}selected{% endif %}>— par défaut —</option>
+              <option value="fr" {% if settings.searchlang == 'fr' %}selected{% endif %}>Français</option>
+              <option value="en" {% if settings.searchlang == 'en' %}selected{% endif %}>English</option>
+              <option value="de" {% if settings.searchlang == 'de' %}selected{% endif %}>Deutsch</option>
+              <option value="es" {% if settings.searchlang == 'es' %}selected{% endif %}>Español</option>
+              <option value="it" {% if settings.searchlang == 'it' %}selected{% endif %}>Italiano</option>
+              <option value="pt" {% if settings.searchlang == 'pt' %}selected{% endif %}>Português</option>
+              <option value="nl" {% if settings.searchlang == 'nl' %}selected{% endif %}>Nederlands</option>
+            </select>
+
+            <label for="lang">Langue des résultats</label>
+            <select id="lang" name="lang">
+              <option value="" {% if not settings.lang %}selected{% endif %}>— par défaut —</option>
+              <option value="fr" {% if settings.lang == 'fr' %}selected{% endif %}>Français</option>
+              <option value="en" {% if settings.lang == 'en' %}selected{% endif %}>English</option>
+              <option value="de" {% if settings.lang == 'de' %}selected{% endif %}>Deutsch</option>
+              <option value="es" {% if settings.lang == 'es' %}selected{% endif %}>Español</option>
+              <option value="it" {% if settings.lang == 'it' %}selected{% endif %}>Italiano</option>
+              <option value="pt" {% if settings.lang == 'pt' %}selected{% endif %}>Português</option>
+              <option value="nl" {% if settings.lang == 'nl' %}selected{% endif %}>Nederlands</option>
+            </select>
+
+            <label for="maxRows">Nombre de résultats maximum</label>
+            <input type="number" id="maxRows" name="maxRows"
+                   value="{{ settings.maxRows }}" min="1" max="100">
+
+            <label for="fuzzy">Tolérance orthographique (fuzzy, 0–1)</label>
+            <input type="number" id="fuzzy" name="fuzzy"
+                   value="{{ settings.fuzzy }}" min="0" max="1" step="0.1">
+
+            <label for="threshold">Seuil de score (0–100)</label>
+            <input type="number" id="threshold" name="threshold"
+                   value="{{ settings.threshold }}" min="0" max="100" step="1">
+          </div>
+        </details>
+
+        <div class="btn-row" style="margin-top:14px;">
+          <button type="button" class="primary" onclick="saveSettings()">Sauvegarder</button>
+          <button type="button" onclick="clearCache()"
+                  title="Efface les données mises en cache — à faire avant de travailler sur un nouveau fichier.">Réinitialiser session</button>
+        </div>
+
+      </form>
+
+    </div><!-- /card-body -->
+  </div><!-- /card -->
+
+  <script>
+    function toast(message, type) {
+      var el = document.createElement('div');
+      el.className = 'toast ' + (type || 'info');
+      el.textContent = message;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(function() {
+        el.style.opacity = '0';
+        setTimeout(function() { el.remove(); }, 400);
+      }, 3500);
+    }
+
+    function showNotif(message) {
+      document.getElementById('quota-msg').textContent = message;
+      document.getElementById('quota-notif').style.display = 'block';
+    }
+
+    function closeQuotaNotif() {
+      document.getElementById('quota-notif').style.display = 'none';
+      fetch('/reset-quota', { method: 'POST' }).catch(function() {});
+    }
+
+    function copyServiceUrl() {
+      navigator.clipboard.writeText('http://localhost:5065/reconcile')
+        .then(function() { toast('URL copiée.', 'ok'); })
+        .catch(function() { toast('Impossible de copier.', 'err'); });
+    }
+
+    function closePreview() {
+      var wrapper = document.getElementById('preview-wrapper');
+      var frame = document.getElementById('preview-frame');
+      wrapper.style.display = 'none';
+      frame.src = '';
+    }
+
+    function saveSettings() {
+      var form = document.getElementById('settings-form');
+      var username = document.getElementById('username').value.trim();
+      if (!username) { toast('Le nom d\'utilisateur est obligatoire.', 'err'); return; }
+      var data = new FormData(form);
+      fetch('/settings', { method: 'POST', body: data })
+        .then(function(r) { return r.text(); })
+        .then(function() { toast('Paramètres sauvegardés.', 'ok'); })
+        .catch(function() { toast('Erreur lors de la sauvegarde.', 'err'); });
+    }
+
+    function testConnection() {
+      var username = document.getElementById('username').value.trim();
+      if (!username) { toast('Saisir un nom d\'utilisateur.', 'err'); return; }
+      fetch('/test-connection?username=' + encodeURIComponent(username))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          toast((data.ok ? '✓ ' : '✗ ') + data.message, data.ok ? 'ok' : 'err');
+          if (!data.ok) showNotif(data.message);
+        })
+        .catch(function() { toast('Impossible de contacter le serveur.', 'err'); });
+    }
+
+    function testPreview() {
+      var username = document.getElementById('username').value.trim();
+      if (!username) { toast('Saisir un nom d\'utilisateur.', 'err'); return; }
+      var wrapper = document.getElementById('preview-wrapper');
+      var frame = document.getElementById('preview-frame');
+      wrapper.style.display = 'block';
+      frame.src = '/reconcile/preview?id=8966183&username=' + encodeURIComponent(username);
+      fetch('/test-connection?username=' + encodeURIComponent(username))
+        .then(function(r) { return r.json(); })
+        .then(function(data) { if (!data.ok) showNotif(data.message); });
+    }
+
+function importCache(input) {
+      var file = input.files[0];
+      if (!file) return;
+      var data = new FormData();
+      data.append('file', file);
+      fetch('/import-cache', { method: 'POST', body: data })
+        .then(function(r) { return r.json(); })
+        .then(function(d) { toast((d.ok ? '✓ ' : '✗ ') + d.message, d.ok ? 'ok' : 'err'); })
+        .catch(function() { toast('Erreur lors de l\'import.', 'err'); });
+      input.value = '';
+    }
+
+    function clearCache() {
+      fetch('/clear-cache', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) { toast('Session réinitialisée.', 'ok'); });
+    }
+
+    // Vérification du statut serveur au chargement
+    (function() {
+      var username = document.getElementById('username').value.trim();
+      if (!username) {
+        toast('Configurez votre nom d\'utilisateur.', 'info');
+        return;
+      }
+      fetch('/test-connection?username=' + encodeURIComponent(username))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.ok) {
+            toast('✗ ' + data.message, 'err');
+          }
+        })
+        .catch(function() {});
+    })();
+
+    // SSE — notifications quota
+    (function() {
+      Notification.requestPermission();
+
+      function notify(message, level) {
+        if (level === 'info') return;
+        document.getElementById('quota-msg').textContent = message;
+        document.getElementById('quota-notif').style.display = 'block';
+        if (Notification.permission === 'granted') {
+          new Notification('ERREUR — GeoNames', {
+            body: 'Attention, le quota de crédit a été atteint.\nPlus aucun candidat ne sera retourné.' + message.substring(0, 144)
+          });
+        }
+      }
+
+      function connect() {
+        var es = new EventSource('/notifications');
+        es.onmessage = function(e) {
+          try {
+            var d = JSON.parse(e.data);
+            if (d.ping) return;
+            notify(d.message, d.level);
+          } catch(ex) {}
+        };
+        es.onerror = function() {
+          es.close();
+          setTimeout(connect, 5000);
+        };
+      }
+      connect();
+    })();
+
+    {% if saved %}
+    window.addEventListener('load', function() { toast('Paramètres sauvegardés.', 'ok'); });
+    {% endif %}
+  </script>
 </body>
 </html>
