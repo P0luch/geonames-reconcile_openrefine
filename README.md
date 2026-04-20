@@ -35,6 +35,14 @@ Les candidats retournés par GeoNames sont scorés par le service sur une échel
 
 ## Installation
 
+### Exécutable Windows
+
+Télécharger la dernière version depuis les [Releases](../../releases) et lancer l'exécutable. Un terminal s'ouvre, puis l'interface de configuration s'affiche automatiquement dans le navigateur.
+
+### Dépôt GitHub
+
+Cloner ou télécharger le dépôt.
+
 ```bash
 # Cloner ou télécharger le dépôt
 git clone https://github.com/votre-compte/geonames-openrefine-python.git
@@ -52,7 +60,20 @@ pip install -r requirements.txt
 python app.py
 ```
 
+## Lancement
 
+**Windows**
+```bash
+start.bat
+```
+
+**Linux / macOS**
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+Les scripts créent le venv et installent les dépendances automatiquement au premier lancement.
 
 ## Configuration
 
