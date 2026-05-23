@@ -144,7 +144,7 @@
     }
     .btn-dl:hover { background: #f0f4f8; border-color: #9ca3af; }
 
-    /* Quota banner */
+    /* Bandeau erreur */
     #quota-notif {
       display: none; position: sticky; top: 0; left: 0; right: 0;
       background: #dc2626; color: white; padding: 12px 20px;
@@ -153,6 +153,26 @@
       box-shadow: 0 2px 10px rgba(0,0,0,0.3);
     }
     #quota-notif .close-hint { float: right; opacity: 0.8; font-size: 0.85em; margin-left: 16px; }
+
+    /* Modale API indisponible */
+    #unavail-modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 10000;
+      align-items: center; justify-content: center;
+    }
+    #unavail-modal-overlay.open { display: flex; }
+    #unavail-modal {
+      background: #fff; border-radius: 10px; padding: 28px 32px;
+      max-width: 440px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    #unavail-modal h3 { margin: 0 0 12px; color: #b45309; font-size: 1.05em; }
+    #unavail-modal p { margin: 0 0 20px; color: #374151; font-size: 0.92em; line-height: 1.5; }
+    #unavail-modal button {
+      background: #b45309; color: white; border: none; border-radius: 6px;
+      padding: 8px 20px; cursor: pointer; font-size: 0.9em;
+    }
+    #unavail-modal button:hover { background: #92400e; }
 
     /* Toasts */
     #toast-container {
@@ -173,7 +193,15 @@
 <body>
   <div id="quota-notif" onclick="closeQuotaNotif()" title="Cliquer pour fermer">
     <span class="close-hint">✕ cliquer pour fermer</span>
-    <strong>Quota GeoNames dépassé</strong> — <span id="quota-msg"></span>
+    <strong id="notif-title">Erreur GeoNames</strong> — <span id="quota-msg"></span>
+  </div>
+
+  <div id="unavail-modal-overlay">
+    <div id="unavail-modal">
+      <h3>API GeoNames indisponible</h3>
+      <p>Le serveur GeoNames est temporairement inaccessible (503). La réconciliation ne fonctionnera pas jusqu'au rétablissement du service.<br><br>Vous pouvez continuer à utiliser l'application, mais aucun résultat ne sera retourné.</p>
+      <button onclick="closeUnavailModal()">Compris</button>
+    </div>
   </div>
 
   <div id="toast-container"></div>
@@ -333,7 +361,15 @@
       }, 3500);
     }
 
-    function showNotif(message) {
+    var NOTIF_TITLES = {
+      quota:       'Quota GeoNames dépassé',
+      auth:        'Authentification GeoNames échouée',
+      maintenance: 'GeoNames en maintenance',
+      error:       'Erreur GeoNames'
+    };
+
+    function showNotif(type, message) {
+      document.getElementById('notif-title').textContent = NOTIF_TITLES[type] || 'Erreur GeoNames';
       document.getElementById('quota-msg').textContent = message;
       document.getElementById('quota-notif').style.display = 'block';
     }
@@ -341,6 +377,22 @@
     function closeQuotaNotif() {
       document.getElementById('quota-notif').style.display = 'none';
       fetch('/reset-quota', { method: 'POST' }).catch(function() {});
+    }
+
+    function showUnavailModal() {
+      document.getElementById('unavail-modal-overlay').classList.add('open');
+    }
+
+    function closeUnavailModal() {
+      document.getElementById('unavail-modal-overlay').classList.remove('open');
+    }
+
+    function handleApiError(data) {
+      if (data.type === 'unavailable') {
+        showUnavailModal();
+      } else {
+        showNotif(data.type, data.message);
+      }
     }
 
     function copyServiceUrl() {
@@ -374,7 +426,7 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
           toast((data.ok ? '✓ ' : '✗ ') + data.message, data.ok ? 'ok' : 'err');
-          if (!data.ok) showNotif(data.message);
+          if (!data.ok) handleApiError(data);
         })
         .catch(function() { toast('Impossible de contacter le serveur.', 'err'); });
     }
@@ -388,7 +440,7 @@
       frame.src = '/reconcile/preview?id=8966183&username=' + encodeURIComponent(username);
       fetch('/test-connection?username=' + encodeURIComponent(username))
         .then(function(r) { return r.json(); })
-        .then(function(data) { if (!data.ok) showNotif(data.message); });
+        .then(function(data) { if (!data.ok) handleApiError(data); });
     }
 
 function importCache(input) {
@@ -421,6 +473,7 @@ function importCache(input) {
         .then(function(data) {
           if (!data.ok) {
             toast('✗ ' + data.message, 'err');
+            handleApiError(data);
           }
         })
         .catch(function() {});
@@ -432,12 +485,10 @@ function importCache(input) {
 
       function notify(message, level) {
         if (level === 'info') return;
-        document.getElementById('quota-msg').textContent = message;
-        document.getElementById('quota-notif').style.display = 'block';
+        showNotif(level === 'quota' ? 'quota' : 'error', message);
         if (Notification.permission === 'granted') {
-          new Notification('ERREUR — GeoNames', {
-            body: 'Attention, le quota de crédit a été atteint.\nPlus aucun candidat ne sera retourné.' + message.substring(0, 144)
-          });
+          var title = level === 'quota' ? 'Quota GeoNames dépassé' : 'Erreur GeoNames';
+          new Notification(title, { body: message.substring(0, 144) });
         }
       }
 

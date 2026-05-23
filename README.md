@@ -49,9 +49,9 @@ git clone https://github.com/votre-compte/geonames-openrefine-python.git
 cd geonames-openrefine-python
 
 # Créer et activer un environnement virtuel
-python -m venv venv
-source venv/bin/activate        # macOS / Linux
-venv\Scripts\activate           # Windows
+python -m venv .venv
+source .venv/bin/activate        # macOS / Linux
+.venv\Scripts\activate           # Windows
 
 # Installer les dépendances
 pip install -r requirements.txt

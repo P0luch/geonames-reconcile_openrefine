@@ -1,12 +1,12 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-if [ ! -d venv ]; then
+if [ ! -d .venv ]; then
     echo "Creation de l'environnement virtuel..."
-    python3 -m venv venv
+    python3 -m venv .venv
 fi
 
-source venv/bin/activate
+source .venv/bin/activate
 
 echo "Installation des dependances..."
 pip install -r requirements.txt --quiet

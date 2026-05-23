@@ -351,7 +351,7 @@ def reconcile():
                     if "status" in g:
                         msg = g["status"].get("message", "Erreur GeoNames inconnue")
                         if not _quota_notified:
-                            push_notification(msg)
+                            push_notification(msg, level="quota")
                             _quota_notified = True
                         quota_error = msg
                         results[qid] = {"result": [], "error": msg}
@@ -398,7 +398,7 @@ def reconcile():
                         msg = raw["status"].get("message", "Erreur GeoNames inconnue")
                         print(f"[GeoNames] QUOTA ATTEINT : {msg}")
                         if not _quota_notified:
-                            push_notification(msg)
+                            push_notification(msg, level="quota")
                             _quota_notified = True
                         quota_error = msg
                         results[qid] = {"result": [], "error": msg}
@@ -585,17 +585,19 @@ def test_connection():
         if "status" in data:
             code = data["status"].get("value", 0)
             if code in (18, 19, 20):
-                msg = "Quota journalier dépassé."
+                return jsonify({"ok": False, "type": "quota", "message": "Quota journalier dépassé."})
             elif code == 10:
-                msg = "Nom d'utilisateur invalide ou web services non activés."
+                return jsonify({"ok": False, "type": "auth", "message": "Nom d'utilisateur invalide ou web services non activés."})
             elif code == 13:
-                msg = "Serveur GeoNames en maintenance. Réessayez dans quelques instants."
+                return jsonify({"ok": False, "type": "maintenance", "message": "Serveur GeoNames en maintenance. Réessayez dans quelques instants."})
             else:
-                msg = data["status"].get("message", "Erreur inconnue")
-            return jsonify({"ok": False, "message": msg})
+                return jsonify({"ok": False, "type": "error", "message": data["status"].get("message", "Erreur inconnue")})
         return jsonify({"ok": True, "message": f"Connexion OK — compte : {username}"})
     except requests.RequestException as e:
-        return jsonify({"ok": False, "message": str(e)})
+        msg = str(e)
+        if "503" in msg:
+            return jsonify({"ok": False, "type": "unavailable", "message": "L'API GeoNames est temporairement indisponible."})
+        return jsonify({"ok": False, "type": "error", "message": msg})
 
 
 # --- Gestion de session (cache) ---
