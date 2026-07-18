@@ -42,13 +42,14 @@ def push_notification(message, level="error"):
 # --- Paramètres ---
 
 DEFAULT_SETTINGS = {
-    "username":   config.DEFAULT_USERNAME,
-    "remember":   False,
-    "searchlang": config.DEFAULT_SEARCHLANG,
-    "lang":       config.DEFAULT_LANG,
-    "maxRows":    config.DEFAULT_MAX_ROWS,
-    "fuzzy":      config.DEFAULT_FUZZY,
-    "threshold":  config.DEFAULT_THRESHOLD,
+    "username":     config.DEFAULT_USERNAME,
+    "remember":     False,
+    "searchlang":   config.DEFAULT_SEARCHLANG,
+    "lang":         config.DEFAULT_LANG,
+    "maxRows":      config.DEFAULT_MAX_ROWS,
+    "fuzzy":        config.DEFAULT_FUZZY,
+    "threshold":    config.DEFAULT_THRESHOLD,
+    "featureClass": [],
 }
 
 _settings: dict = {}
@@ -90,9 +91,13 @@ EXTENSION_PROPERTIES = [
     {"id": "countryCode",  "name": "Code pays"},
     {"id": "countryName",  "name": "Pays"},
     {"id": "adminName1",   "name": "Adm1"},
+    {"id": "adminCode1",   "name": "Adm1 code"},
     {"id": "adminName2",   "name": "Adm2"},
+    {"id": "adminCode2",   "name": "Adm2 code"},
     {"id": "adminName3",   "name": "Adm3"},
+    {"id": "adminCode3",   "name": "Adm3 code"},
     {"id": "adminName4",   "name": "Adm4"},
+    {"id": "adminCode4",   "name": "Adm4 code"},
     {"id": "adminName5",   "name": "Adm5"},
     {"id": "continentCode","name": "Continent"},
     {"id": "fcode",        "name": "Code type de lieu"},
@@ -101,6 +106,7 @@ EXTENSION_PROPERTIES = [
     {"id": "population",   "name": "Population"},
     {"id": "wikipediaURL", "name": "Wikipedia"},
     {"id": "geonameId",    "name": "GeoNames ID"},
+    {"id": "hierarchy",    "name": "Hiérarchie (chemin complet)"},
 ]
 
 PROPERTY_IDS = {p["id"] for p in EXTENSION_PROPERTIES}
@@ -238,6 +244,45 @@ def fetch_geoname(geoname_id, username):
     return resp.json()
 
 
+# Ordre des niveaux hiérarchiques fixes pour la propriété hierarchy.
+# Chaque fcode est mappé à un slot ; les slots vides produisent une cellule vide.
+_HIERARCHY_SLOTS = ["AREA", "CONT", "PCLI", "ADM1", "ADM2", "ADM3", "ADM4", "ADM5"]
+# fcodes alternatifs de niveau pays
+_COUNTRY_FCODES = {"PCL", "PCLD", "PCLF", "PCLI", "PCLIX", "PCLS"}
+
+
+@lru_cache(maxsize=512)
+def fetch_hierarchy(geoname_id, username):
+    """Appelle GeoNames hierarchyJSON et retourne la chaîne hiérarchique à slots fixes.
+
+    Format : 'Earth (6295630) | Europe (6255148) | Switzerland (2658434) | | ...'
+    8 slots (AREA→ADM5), le lieu lui-même inclus à son niveau, trous pour les absents.
+    """
+    resp = requests.get(
+        config.GEONAMES_URL + "hierarchyJSON",
+        params={"geonameId": geoname_id, "username": username},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if "status" in data:
+        return ""
+    geonames = data.get("geonames", [])
+
+    slots = [""] * len(_HIERARCHY_SLOTS)
+    for g in geonames:
+        fcode = g.get("fcode", "")
+        name = g.get("name") or g.get("toponymName", "")
+        gid = g.get("geonameId", "")
+        cell = f"{name} ({gid})"
+        if fcode in _HIERARCHY_SLOTS:
+            slots[_HIERARCHY_SLOTS.index(fcode)] = cell
+        elif fcode in _COUNTRY_FCODES:
+            slots[_HIERARCHY_SLOTS.index("PCLI")] = cell
+
+    return " | ".join(slots)
+
+
 # --- Manifeste du service ---
 
 def service_manifest(base_url):
@@ -293,6 +338,8 @@ def update_settings():
         settings["threshold"] = max(0, min(100, int(request.form.get("threshold", config.DEFAULT_THRESHOLD))))
     except ValueError:
         settings["threshold"] = config.DEFAULT_THRESHOLD
+    valid_fcl = {"A", "H", "L", "P", "R", "S", "T", "U", "V"}
+    settings["featureClass"] = [c for c in request.form.getlist("featureClass") if c in valid_fcl]
     save_settings(settings)
     return render_template("index.html", settings=settings, saved=True)
 
@@ -371,8 +418,9 @@ def reconcile():
                 }
             else:
                 searchlang = settings.get("searchlang", "")
+                feature_classes = tuple(sorted(settings.get("featureClass") or []))
                 cache_key = (_normalize(query_str), searchlang, settings.get("lang", ""),
-                             settings["fuzzy"], settings["maxRows"])
+                             settings["fuzzy"], settings["maxRows"], feature_classes)
                 if cache_key in _search_cache:
                     geonames = [_record_cache[gid] for gid in _search_cache[cache_key] if gid in _record_cache]
                     print(f"[reconcile] {query_str!r} — cache hit ({len(geonames)} résultats)")
@@ -389,8 +437,11 @@ def reconcile():
                         params["searchlang"] = searchlang
                     if settings.get("lang"):
                         params["lang"] = settings["lang"]
+                    # featureClass peut être répété (ex: featureClass=A&featureClass=P)
+                    fcl_list = settings.get("featureClass") or []
+                    param_list = list(params.items()) + [("featureClass", fc) for fc in fcl_list]
 
-                    resp = requests.get(config.GEONAMES_URL + "searchJSON", params=params, timeout=10)
+                    resp = requests.get(config.GEONAMES_URL + "searchJSON", params=param_list, timeout=10)
                     resp.raise_for_status()
                     raw = resp.json()
                     _elapsed = time.perf_counter() - _t
@@ -427,7 +478,13 @@ def reconcile():
                     })
                 results[qid] = {"result": scored}
         except requests.RequestException as e:
-            results[qid] = {"result": [], "error": str(e)}
+            msg = str(e)
+            if "503" in msg:
+                if not _quota_notified:
+                    push_notification("L'API GeoNames est temporairement indisponible (503). La réconciliation est interrompue.", level="unavailable")
+                    _quota_notified = True
+                quota_error = msg
+            results[qid] = {"result": [], "error": msg}
 
     _save_all()
     return jsonify(results)
@@ -476,6 +533,9 @@ def extend_handler(extend_data):
     settings = get_settings()
     rows = {}
 
+    direct_props = [p for p in props if p != "hierarchy"]
+    need_hierarchy = "hierarchy" in props
+
     for geoname_id in ids:
         gid = str(geoname_id)
         if gid in _record_cache:
@@ -488,10 +548,20 @@ def extend_handler(extend_data):
                 continue
             with _cache_lock:
                 _record_cache[gid] = data
-        rows[gid] = {
+
+        row = {
             prop: [{"str": str(v)}] if (v := data.get(prop)) is not None else []
-            for prop in props
+            for prop in direct_props
         }
+
+        if need_hierarchy:
+            try:
+                hier = fetch_hierarchy(gid, settings["username"])
+                row["hierarchy"] = [{"str": hier}] if hier else []
+            except requests.RequestException:
+                row["hierarchy"] = []
+
+        rows[gid] = row
 
     meta = [next(p for p in EXTENSION_PROPERTIES if p["id"] == pid) for pid in props]
     return jsonify({"meta": meta, "rows": rows})

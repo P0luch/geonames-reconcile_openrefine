@@ -335,6 +335,29 @@
             <label for="threshold">Seuil de score (0–100)</label>
             <input type="number" id="threshold" name="threshold"
                    value="{{ settings.threshold }}" min="0" max="100" step="1">
+
+            <label style="margin-top:12px;">Filtrer par classe (FCL) — laisser vide = toutes</label>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:5px;">
+              {% set fcl_labels = [
+                ('A','A — Pays, régions admin.'),
+                ('H','H — Cours d\'eau, lacs'),
+                ('L','L — Parcs, zones'),
+                ('P','P — Villes, villages'),
+                ('R','R — Routes, voies ferrées'),
+                ('S','S — Bâtiments, lieux'),
+                ('T','T — Relief, montagnes'),
+                ('U','U — Relief sous-marin'),
+                ('V','V — Forêts, végétation'),
+              ] %}
+              {% for val, lbl in fcl_labels %}
+              <label style="font-weight:normal; font-size:0.88em; display:flex; align-items:center; gap:4px; cursor:pointer;">
+                <input type="checkbox" name="featureClass" value="{{ val }}"
+                       {% if val in (settings.featureClass or []) %}checked{% endif %}
+                       style="accent-color:#2d6a4f; width:13px; height:13px;">
+                {{ lbl }}
+              </label>
+              {% endfor %}
+            </div>
           </div>
         </details>
 
@@ -485,9 +508,15 @@ function importCache(input) {
 
       function notify(message, level) {
         if (level === 'info') return;
-        showNotif(level === 'quota' ? 'quota' : 'error', message);
+        if (level === 'unavailable') {
+          showUnavailModal();
+        } else {
+          showNotif(level === 'quota' ? 'quota' : 'error', message);
+        }
         if (Notification.permission === 'granted') {
-          var title = level === 'quota' ? 'Quota GeoNames dépassé' : 'Erreur GeoNames';
+          var title = level === 'quota' ? 'Quota GeoNames dépassé'
+                    : level === 'unavailable' ? 'API GeoNames indisponible'
+                    : 'Erreur GeoNames';
           new Notification(title, { body: message.substring(0, 144) });
         }
       }
